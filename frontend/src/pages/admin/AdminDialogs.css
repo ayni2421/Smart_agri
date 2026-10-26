@@ -1,0 +1,43 @@
+/* ── Shared dialog styles used across all admin pages ───────────────────── */
+
+.adm-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.adm-dialog {
+  background: var(--adm-white);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: 0 24px 60px rgba(0,0,0,.2);
+}
+
+.adm-dialog-wide { max-width: 640px; }
+
+.adm-dialog h3 {
+  font-family: 'Manrope', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--adm-text);
+  margin: 0;
+}
+
+.adm-dialog p {
+  font-size: 12px;
+  color: var(--adm-muted);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+
+@keyframes adm-spin { to { transform: rotate(360deg); } }
+.adm-spin { animation: adm-spin 0.8s linear infinite; }

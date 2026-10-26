@@ -1,0 +1,905 @@
+openapi: 3.0.3
+info:
+  title: SAMIC — Smart Agricultural Market Intelligence and Supply Chain Coordination Platform
+  description: |
+    REST API for the SAMIC Platform.
+
+    **Authentication:** All protected endpoints require a `Bearer` JWT token in the `Authorization` header.
+
+    **Units:** Mass quantities accept `kg`, `quintal` (100 kg), or `tonne` (1000 kg). All values are stored in kg internally.
+
+    **Conditional features:** Price forecasting (FR-INT-10), SMS notifications (FR-NOT-05), and payment gateway integration (FR-PAY-05) are not implemented in the MVP. Their endpoints are not documented here.
+
+    **Synthetic data:** Seed data is labeled `sourceType: synthetic` and must not be presented as real market data (BR-03).
+  version: 1.0.0
+  contact:
+    name: SAMIC Project Team — Debre Markos University
+
+servers:
+  - url: http://localhost:5000/api
+    description: Local development server
+  - url: https://{host}/api
+    description: Deployed environment
+    variables:
+      host:
+        default: samic.example.com
+
+tags:
+  - name: Auth
+  - name: Users
+  - name: Commodities
+  - name: Markets
+  - name: Prices
+  - name: Anomalies
+  - name: Suppliers
+  - name: Orders
+  - name: Inventory
+  - name: Batches
+  - name: Deliveries
+  - name: Transactions
+  - name: Notifications
+  - name: Reports
+  - name: Audit
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Validation failed.
+        fields:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              message: { type: string }
+
+    Unit:
+      type: string
+      enum: [kg, quintal, tonne]
+      description: Mass unit. Stored internally as kg (1 quintal = 100 kg, 1 tonne = 1000 kg).
+
+    Role:
+      type: string
+      enum: [farmer, agent, buyer, supplier, transporter, data_reviewer, admin]
+
+    AccountStatus:
+      type: string
+      enum: [pending_approval, active, suspended, deactivated]
+
+    OrderStatus:
+      type: string
+      enum: [draft, pending, accepted, rejected, confirmed, in_fulfillment, delivered, completed, cancelled, disputed]
+
+    DeliveryStatus:
+      type: string
+      enum: [assigned, in_transit, delivered, failed, cancelled]
+
+    TransactionStatus:
+      type: string
+      enum: [pending, recorded, confirmed, failed, cancelled]
+
+    SourceType:
+      type: string
+      enum: [verified, submitted, synthetic, imported, unverified]
+
+    ReviewStatus:
+      type: string
+      enum: [pending_review, approved, rejected, correction_requested, flagged]
+
+    User:
+      type: object
+      properties:
+        _id: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/Role' }
+        status: { $ref: '#/components/schemas/AccountStatus' }
+        region: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    Commodity:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string, example: Teff }
+        nameAmharic: { type: string, example: ጤፍ }
+        category: { type: string }
+        defaultDisplayUnit: { $ref: '#/components/schemas/Unit' }
+        isActive: { type: boolean }
+
+    Market:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        region: { type: string }
+        zone: { type: string }
+        woreda: { type: string }
+        town: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        isActive: { type: boolean }
+
+    PriceObservation:
+      type: object
+      properties:
+        _id: { type: string }
+        commodity: { $ref: '#/components/schemas/Commodity' }
+        market: { $ref: '#/components/schemas/Market' }
+        pricePerKg: { type: number, description: 'ETB per kg (canonical storage unit)' }
+        submittedPrice: { type: number }
+        submittedUnit: { $ref: '#/components/schemas/Unit' }
+        currency: { type: string, example: ETB }
+        observationDate: { type: string, format: date }
+        sourceType: { $ref: '#/components/schemas/SourceType' }
+        reviewStatus: { $ref: '#/components/schemas/ReviewStatus' }
+        isFlagged: { type: boolean }
+        flagReason: { type: string }
+
+    Order:
+      type: object
+      properties:
+        _id: { type: string }
+        orderNumber: { type: string, example: ORD-000001 }
+        buyer: { $ref: '#/components/schemas/User' }
+        supplier: { $ref: '#/components/schemas/User' }
+        commodity: { $ref: '#/components/schemas/Commodity' }
+        market: { $ref: '#/components/schemas/Market' }
+        quantityKg: { type: number }
+        submittedQuantity: { type: number }
+        submittedUnit: { $ref: '#/components/schemas/Unit' }
+        agreedPricePerKg: { type: number }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        deliveryLocation: { type: string }
+        deliveryDeadline: { type: string, format: date-time }
+        stateHistory:
+          type: array
+          items:
+            type: object
+            properties:
+              fromState: { type: string }
+              toState: { type: string }
+              performedByRole: { type: string }
+              reason: { type: string }
+              timestamp: { type: string, format: date-time }
+
+    Inventory:
+      type: object
+      properties:
+        _id: { type: string }
+        supplier: { $ref: '#/components/schemas/User' }
+        commodity: { $ref: '#/components/schemas/Commodity' }
+        market: { $ref: '#/components/schemas/Market' }
+        availableQuantityKg: { type: number }
+        askPricePerKg: { type: number }
+        isActive: { type: boolean }
+
+    SupplierRankResult:
+      type: object
+      properties:
+        supplierId: { type: string }
+        askPricePerKg: { type: number }
+        availableKg: { type: number }
+        scores:
+          type: object
+          properties:
+            price: { type: number, description: '0–100 score component' }
+            quantity: { type: number }
+            location: { type: number }
+            history: { type: number }
+            total: { type: number }
+
+    RankingResponse:
+      type: object
+      properties:
+        ranked:
+          type: array
+          items: { $ref: '#/components/schemas/SupplierRankResult' }
+        baseline:
+          type: object
+          description: Lowest-price eligible supplier for FR-SUP-08 baseline comparison
+          properties:
+            supplierId: { type: string }
+            askPricePerKg: { type: number }
+        weights:
+          type: object
+          description: Scoring weights used (price 0.40, quantity 0.30, location 0.20, history 0.10)
+        disclaimer:
+          type: string
+          example: This ranking is advisory. It does not automatically create an order.
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ── AUTH ──────────────────────────────────────────────────────────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Self-register (buyer or farmer only)
+      description: |
+        Buyers are immediately active. Farmers are set to `pending_approval` and must be
+        approved by an Admin before they can perform protected operations (FR-AUTH-10).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [firstName, lastName, email, password, role]
+              properties:
+                firstName: { type: string }
+                lastName: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                role: { type: string, enum: [buyer, farmer] }
+                phone: { type: string }
+                region: { type: string }
+      responses:
+        '201':
+          description: Registered successfully
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: Registration failed (do not reveal reason per FR-AUTH-02) }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Authenticate and receive JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+        '401': { description: Invalid credentials (FR-AUTH-02 — does not reveal account existence) }
+        '403': { description: Account not active }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout (records audit event; client discards token)
+      responses:
+        '200': { description: Logged out }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current authenticated user
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+
+  # ── USERS ─────────────────────────────────────────────────────────────────
+  /users:
+    get:
+      tags: [Users]
+      summary: List users (Admin only)
+      parameters:
+        - { name: role, in: query, schema: { $ref: '#/components/schemas/Role' } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/AccountStatus' } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        '200': { description: User list }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+    post:
+      tags: [Users]
+      summary: Create user account (Admin only — for staff roles)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [firstName, lastName, email, password, role]
+              properties:
+                firstName: { type: string }
+                lastName: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                role: { $ref: '#/components/schemas/Role' }
+      responses:
+        '201': { description: User created }
+        '409': { description: Email already in use }
+
+  /users/{id}/status:
+    patch:
+      tags: [Users]
+      summary: Update account status (Admin only — FR-AUTH-10)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: '#/components/schemas/AccountStatus' }
+      responses:
+        '200': { description: Status updated }
+
+  /users/{id}/review-scope:
+    patch:
+      tags: [Users]
+      summary: Set Data Reviewer scope (Admin only — FR-AUTH-11)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reviewScope:
+                  type: object
+                  properties:
+                    systemWide: { type: boolean }
+                    markets: { type: array, items: { type: string } }
+                    commodities: { type: array, items: { type: string } }
+      responses:
+        '200': { description: Scope updated }
+
+  # ── COMMODITIES ───────────────────────────────────────────────────────────
+  /commodities:
+    get:
+      tags: [Commodities]
+      summary: List active commodities
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  commodities:
+                    type: array
+                    items: { $ref: '#/components/schemas/Commodity' }
+    post:
+      tags: [Commodities]
+      summary: Create commodity (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                nameAmharic: { type: string }
+                category: { type: string }
+                defaultDisplayUnit: { $ref: '#/components/schemas/Unit' }
+      responses:
+        '201': { description: Created }
+
+  /commodities/{id}:
+    patch:
+      tags: [Commodities]
+      summary: Update commodity (Admin only)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Updated }
+    delete:
+      tags: [Commodities]
+      summary: Deactivate commodity (Admin only — FR-COM-05, does not delete historical records)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Deactivated }
+
+  # ── MARKETS ───────────────────────────────────────────────────────────────
+  /markets:
+    get:
+      tags: [Markets]
+      summary: List active markets
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  markets:
+                    type: array
+                    items: { $ref: '#/components/schemas/Market' }
+    post:
+      tags: [Markets]
+      summary: Create market (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, region]
+              properties:
+                name: { type: string }
+                region: { type: string }
+                zone: { type: string }
+                woreda: { type: string }
+                town: { type: string }
+                latitude: { type: number }
+                longitude: { type: number }
+      responses:
+        '201': { description: Created }
+
+  # ── PRICES ────────────────────────────────────────────────────────────────
+  /prices:
+    post:
+      tags: [Prices]
+      summary: Submit a price observation (Agent, Farmer, Admin)
+      description: |
+        Anomaly detection runs automatically. Suspicious observations are flagged
+        with `isFlagged: true` and sent for review (FR-ANOM-01).
+        Synthetic data must use `sourceType: synthetic` (BR-03).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [commodity, market, submittedPrice, submittedUnit, observationDate, sourceType]
+              properties:
+                commodity: { type: string, description: Commodity ID }
+                market: { type: string, description: Market ID }
+                submittedPrice: { type: number, minimum: 0.01 }
+                submittedUnit: { $ref: '#/components/schemas/Unit' }
+                observationDate: { type: string, format: date }
+                sourceType: { $ref: '#/components/schemas/SourceType' }
+                sourceDescription: { type: string }
+                submittedOnBehalfOf: { type: string, description: Farmer user ID (agent-mediated submission) }
+      responses:
+        '201':
+          description: Observation submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  observation: { $ref: '#/components/schemas/PriceObservation' }
+                  anomaly:
+                    type: object
+                    properties:
+                      flagged: { type: boolean }
+                      flags: { type: array, items: { type: string } }
+
+    get:
+      tags: [Prices]
+      summary: List price observations (filterable)
+      parameters:
+        - { name: commodity, in: query, schema: { type: string } }
+        - { name: market, in: query, schema: { type: string } }
+        - { name: sourceType, in: query, schema: { $ref: '#/components/schemas/SourceType' } }
+        - { name: reviewStatus, in: query, schema: { $ref: '#/components/schemas/ReviewStatus' } }
+        - { name: startDate, in: query, schema: { type: string, format: date } }
+        - { name: endDate, in: query, schema: { type: string, format: date } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, default: 50 } }
+      responses:
+        '200': { description: Filtered observations }
+
+  /prices/compare:
+    get:
+      tags: [Prices]
+      summary: Compare prices across markets (FR-PRICE-01 through FR-PRICE-07)
+      description: |
+        Returns descriptive statistics for approved, non-synthetic observations.
+        FR-PRICE-07: Results are not guaranteed future prices.
+      parameters:
+        - { name: commodity, in: query, required: true, schema: { type: string } }
+        - { name: markets, in: query, schema: { type: array, items: { type: string } }, style: form, explode: true }
+        - { name: startDate, in: query, schema: { type: string, format: date } }
+        - { name: endDate, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: Price comparison
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        market: { type: object }
+                        count: { type: integer }
+                        minPricePerKg: { type: number }
+                        maxPricePerKg: { type: number }
+                        avgPricePerKg: { type: number }
+                        medianPricePerKg: { type: number }
+                  note: { type: string }
+
+  /prices/{id}/review:
+    patch:
+      tags: [Prices]
+      summary: Review a price observation (Data Reviewer, Admin — scoped by FR-AUTH-11)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [approved, rejected, correction_requested] }
+                reviewNotes: { type: string }
+      responses:
+        '200': { description: Review recorded }
+        '409': { description: Already reviewed — FR-DATA-09 }
+
+  # ── ANOMALIES ─────────────────────────────────────────────────────────────
+  /anomalies:
+    get:
+      tags: [Anomalies]
+      summary: List flagged observations (Data Reviewer, Admin — scoped)
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        '200': { description: Flagged observations }
+
+  # ── SUPPLIERS ─────────────────────────────────────────────────────────────
+  /suppliers/rank:
+    get:
+      tags: [Suppliers]
+      summary: Rank eligible suppliers for a procurement request (FR-SUP-01 through FR-SUP-08)
+      description: |
+        Scoring: price (40%), quantity (30%), location (20%), history (10%).
+        Response includes a baseline (lowest-price supplier) for FR-SUP-08 evaluation.
+        FR-SUP-07: Result is advisory and does not create an order.
+      parameters:
+        - { name: commodity, in: query, required: true, schema: { type: string } }
+        - { name: quantity, in: query, required: true, schema: { type: number } }
+        - { name: unit, in: query, schema: { $ref: '#/components/schemas/Unit' } }
+        - { name: marketId, in: query, schema: { type: string } }
+        - { name: region, in: query, schema: { type: string } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RankingResponse' }
+
+  # ── ORDERS ────────────────────────────────────────────────────────────────
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Create a procurement order (Buyer)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [commodity, submittedQuantity, submittedUnit]
+              properties:
+                commodity: { type: string }
+                market: { type: string }
+                submittedQuantity: { type: number, minimum: 0.001 }
+                submittedUnit: { $ref: '#/components/schemas/Unit' }
+                deliveryLocation: { type: string }
+                deliveryDeadline: { type: string, format: date-time }
+                notes: { type: string }
+      responses:
+        '201': { description: Order created as draft }
+
+    get:
+      tags: [Orders]
+      summary: List orders (role-filtered)
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/OrderStatus' } }
+        - { name: commodity, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+      responses:
+        '200': { description: Orders }
+
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Get order details with state history
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order: { $ref: '#/components/schemas/Order' }
+
+  /orders/{id}/status:
+    patch:
+      tags: [Orders]
+      summary: Transition order state (FR-ORD-07 — enforced by state machine)
+      description: |
+        Valid transitions:
+        - draft → pending (buyer)
+        - draft → cancelled (buyer)
+        - pending → accepted (supplier)
+        - pending → rejected (supplier)
+        - pending → cancelled (buyer)
+        - accepted → confirmed (buyer)
+        - accepted → cancelled (buyer)
+        - accepted → disputed (buyer/supplier)
+        - confirmed → in_fulfillment (supplier)
+        - in_fulfillment → delivered (transporter)
+        - delivered → completed (buyer)
+        - delivered → disputed (buyer)
+        - disputed → completed/cancelled (admin only)
+
+        Invalid transitions return HTTP 422 with the current state and allowed targets.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: '#/components/schemas/OrderStatus' }
+                transitionReason: { type: string }
+                supplierId: { type: string, description: Required when transitioning to accepted }
+      responses:
+        '200': { description: Transition successful }
+        '422': { description: Invalid state transition }
+        '403': { description: Role not permitted for this transition }
+
+  # ── INVENTORY ─────────────────────────────────────────────────────────────
+  /inventory:
+    get:
+      tags: [Inventory]
+      summary: List inventory records (role-filtered)
+      responses:
+        '200': { description: Inventory }
+    post:
+      tags: [Inventory]
+      summary: Create inventory record (Supplier, Agent, Admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [commodity, submittedQuantity, submittedUnit]
+              properties:
+                commodity: { type: string }
+                market: { type: string }
+                submittedQuantity: { type: number, minimum: 0.001 }
+                submittedUnit: { $ref: '#/components/schemas/Unit' }
+                submittedAskPrice: { type: number }
+                submittedAskUnit: { $ref: '#/components/schemas/Unit' }
+                harvestDate: { type: string, format: date }
+                storageLocation: { type: string }
+      responses:
+        '201': { description: Created }
+
+  # ── BATCHES ───────────────────────────────────────────────────────────────
+  /batches:
+    get:
+      tags: [Batches]
+      summary: List produce batches
+      responses:
+        '200': { description: Batches }
+    post:
+      tags: [Batches]
+      summary: Create produce batch
+      responses:
+        '201': { description: Created }
+
+  /batches/{id}/trace:
+    get:
+      tags: [Batches]
+      summary: Trace batch through inventory → order → delivery (FR-INV-08)
+      description: FR-INV-09 — missing links are shown as incomplete, not inferred.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trace:
+                    type: object
+                    properties:
+                      batch: { type: object }
+                      inventory: { type: object }
+                      order: { type: object }
+                      delivery: { type: object }
+
+  # ── DELIVERIES ────────────────────────────────────────────────────────────
+  /deliveries:
+    get:
+      tags: [Deliveries]
+      summary: List deliveries (role-filtered)
+      responses:
+        '200': { description: Deliveries }
+    post:
+      tags: [Deliveries]
+      summary: Create delivery record (Admin, Supplier)
+      responses:
+        '201': { description: Created }
+
+  /deliveries/{id}/status:
+    patch:
+      tags: [Deliveries]
+      summary: Update delivery status (Transporter, Admin — FR-DEL-04)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: '#/components/schemas/DeliveryStatus' }
+                notes: { type: string }
+      responses:
+        '200': { description: Status updated }
+        '422': { description: Invalid delivery state transition }
+
+  # ── TRANSACTIONS ──────────────────────────────────────────────────────────
+  /transactions:
+    get:
+      tags: [Transactions]
+      summary: List transactions (role-filtered)
+      responses:
+        '200': { description: Transactions }
+    post:
+      tags: [Transactions]
+      summary: Create transaction record (Admin, Buyer — FR-PAY-09 fallback)
+      responses:
+        '201': { description: Created }
+
+  /transactions/{id}/status:
+    patch:
+      tags: [Transactions]
+      summary: Update transaction status (FR-PAY-09 — manual record-keeping fallback)
+      description: |
+        FR-PAY-07: Setting status to `confirmed` does not prove funds were transferred.
+        This is a record-keeping operation only.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: '#/components/schemas/TransactionStatus' }
+                notes: { type: string }
+      responses:
+        '200': { description: Status recorded }
+
+  # ── NOTIFICATIONS ─────────────────────────────────────────────────────────
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: Get in-app notifications for current user
+      responses:
+        '200': { description: Notifications }
+
+  /notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark notification as read
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Marked as read }
+
+  # ── REPORTS ───────────────────────────────────────────────────────────────
+  /reports/market-summary:
+    get:
+      tags: [Reports]
+      summary: Aggregated market price summary (FR-REP-01)
+      description: Results grouped by commodity, market, and sourceType. Synthetic data is labeled.
+      parameters:
+        - { name: commodity, in: query, schema: { type: string } }
+        - { name: startDate, in: query, schema: { type: string, format: date } }
+        - { name: endDate, in: query, schema: { type: string, format: date } }
+      responses:
+        '200': { description: Summary }
+
+  /reports/supply-demand:
+    get:
+      tags: [Reports]
+      summary: Supply vs demand summary by commodity (FR-SD-03)
+      description: FR-SD-05 — reflects recorded system data only, not all market activity.
+      parameters:
+        - { name: commodity, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Supply and demand summary }
+
+  # ── AUDIT ─────────────────────────────────────────────────────────────────
+  /audit:
+    get:
+      tags: [Audit]
+      summary: View audit log (Admin only — FR-REP-07)
+      description: FR-REP-06 — no POST, PATCH, or DELETE routes are provided.
+      parameters:
+        - { name: action, in: query, schema: { type: string } }
+        - { name: resourceType, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, default: 50 } }
+      responses:
+        '200': { description: Audit log entries }
+
+components:
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Insufficient role or scope
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ValidationError' }

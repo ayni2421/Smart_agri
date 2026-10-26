@@ -1,0 +1,71 @@
+/* AgriMarket Platform — Base Styles */
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  --color-primary: #2d7a2d;
+  --color-primary-dark: #1e551e;
+  --color-accent: #f59e0b;
+  --color-danger: #dc2626;
+  --color-text: #1f2937;
+  --color-text-muted: #6b7280;
+  --color-bg: #f9fafb;
+  --color-surface: #ffffff;
+  --color-border: #e5e7eb;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.1);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+body { margin: 0; padding: 0; }
+a { color: var(--color-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button {
+  cursor: pointer;
+  border-radius: var(--radius);
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  border: none;
+  transition: opacity 0.15s;
+}
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+input, select, textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+}
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.btn-primary { background: var(--color-primary); color: white; }
+.btn-primary:hover { background: var(--color-primary-dark); }
+.btn-secondary { background: var(--color-border); color: var(--color-text); }
+.btn-danger { background: var(--color-danger); color: white; }
+
+.card { background: var(--color-surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+.badge-green { background: #dcfce7; color: #166534; }
+.badge-yellow { background: #fef9c3; color: #854d0e; }
+.badge-red { background: #fee2e2; color: #991b1b; }
+.badge-blue { background: #dbeafe; color: #1e40af; }
+.badge-gray { background: #f3f4f6; color: #374151; }
+
+.synthetic-label { color: var(--color-accent); font-size: 0.75rem; font-weight: 700; }
+
+.error-msg { color: var(--color-danger); font-size: 0.85rem; margin-top: 4px; }
+.success-msg { color: var(--color-primary); font-size: 0.85rem; margin-top: 4px; }
