@@ -85,7 +85,7 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 
 if (!process.env.JEST_WORKER_ID) {
-  app.listen(PORT, () => console.log(`SAMIC API running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`AgriMarket API running on port ${PORT}`));
 }
 
 module.exports = app;
