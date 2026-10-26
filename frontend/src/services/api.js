@@ -129,6 +129,7 @@ export const userApi = {
   setReviewScope: (id, reviewScope) => api.patch(`/users/${id}/review-scope`, { reviewScope }),
   updateProfile: (id, data) => api.patch(`/users/${id}/profile`, data),
   changePassword: (id, data) => api.patch(`/users/${id}/password`, data),
+  setRole: (id, role, reviewScope) => api.patch(`/users/${id}/role`, { role, reviewScope }),
 };
 
 export default api;

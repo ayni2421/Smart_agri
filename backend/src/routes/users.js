@@ -85,7 +85,54 @@ router.patch(
   }
 );
 
-// PATCH /api/users/:id/profile — update own profile fields
+// PATCH /api/users/:id/role — Admin assigns a new role to a user
+router.patch(
+  '/:id/role',
+  authorize('admin'),
+  async (req, res, next) => {
+    try {
+      const { role, reviewScope } = req.body;
+
+      if (!User.ROLES.includes(role)) {
+        return res.status(400).json({ error: `Invalid role. Valid roles: ${User.ROLES.join(', ')}` });
+      }
+
+      const user = await User.findById(req.params.id);
+      if (!user) return res.status(404).json({ error: 'User not found.' });
+
+      // Prevent removing the last admin
+      if (user.role === 'admin' && role !== 'admin') {
+        const adminCount = await User.countDocuments({ role: 'admin', status: 'active' });
+        if (adminCount <= 1) {
+          return res.status(400).json({ error: 'Cannot change the role of the last active admin.' });
+        }
+      }
+
+      const previousRole = user.role;
+      user.role = role;
+
+      // Set reviewer scope if assigning data_reviewer
+      if (role === 'data_reviewer' && reviewScope) {
+        user.reviewScope = reviewScope;
+      }
+
+      await user.save();
+
+      await audit('user.roleChange', {
+        actor: req.user._id, actorRole: req.user.role,
+        resourceType: 'User', resourceId: user._id,
+        details: { from: previousRole, to: role },
+        req,
+      });
+
+      res.json({
+        message: `Role changed from "${previousRole}" to "${role}".`,
+        user,
+      });
+    } catch (err) { next(err); }
+  }
+);
+
 router.patch('/:id/profile', async (req, res, next) => {
   try {
     const requesterId = String(req.user._id);
