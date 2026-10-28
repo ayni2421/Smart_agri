@@ -346,7 +346,12 @@ export default function AdminUsers() {
           .toLowerCase().includes(search.toLowerCase()))
     : users;
 
-  const switchTab = (role) => { setRoleTab(role); setPage(1); setSearch(''); };
+  const switchTab = (role) => {
+    setRoleTab(role);
+    setPage(1);
+    setSearch('');
+    setStatusFilter(''); // always reset status filter when switching tabs
+  };
   const tabCount  = (role) => role === '' ? countData?.all : countData?.byRole?.[role] ?? 0;
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -496,7 +501,33 @@ export default function AdminUsers() {
               <option key={s} value={s}>{s ? s.replace(/_/g, ' ') : 'All statuses'}</option>
             ))}
           </select>
+          {/* Active filter indicator with clear button */}
+          {(statusFilter || search) && (
+            <button
+              className="adm-btn adm-btn-secondary adm-btn-sm"
+              onClick={() => { setStatusFilter(''); setSearch(''); setPage(1); }}
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              ✕ Clear filters
+            </button>
+          )}
         </div>
+        {/* Show active filters as pills */}
+        {statusFilter && (
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+            <span style={{ color: 'var(--adm-muted)' }}>Active filter:</span>
+            <span style={{ padding: '2px 10px', background: '#fef9c3', color: '#854d0e', borderRadius: 100, fontWeight: 600 }}>
+              {statusFilter.replace(/_/g, ' ')}
+            </span>
+            <button
+              onClick={() => { setStatusFilter(''); setPage(1); }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--adm-muted)', fontSize: 12, padding: '0 4px' }}
+              title="Remove this filter"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Users table ───────────────────────────────────────────────────── */}
@@ -521,7 +552,11 @@ export default function AdminUsers() {
                 {filtered.length === 0 && (
                   <tr>
                     <td colSpan={7} className="adm-empty">
-                      {search ? 'No users match your search.' : 'No users found.'}
+                      {search
+                        ? `No users match "${search}".`
+                        : statusFilter
+                        ? `No users with status "${statusFilter.replace(/_/g, ' ')}".`
+                        : 'No users found.'}
                     </td>
                   </tr>
                 )}
