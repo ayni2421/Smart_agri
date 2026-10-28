@@ -47,15 +47,27 @@ router.patch(
     try {
       const user = await User.findById(req.params.id);
       if (!user) return res.status(404).json({ error: 'User not found.' });
+
+      // Safety: prevent removing the last active admin
+      if (user.role === 'admin' && req.body.status !== 'active') {
+        const activeAdmins = await User.countDocuments({ role: 'admin', status: 'active' });
+        if (activeAdmins <= 1) {
+          return res.status(400).json({ error: 'Cannot suspend or deactivate the last active administrator.' });
+        }
+      }
+
       const previous = user.status;
-      user.status = req.body.status;
+      const reason   = req.body.reason || null;
+      user.status    = req.body.status;
       await user.save();
+
       await audit('user.statusChange', {
         actor: req.user._id, actorRole: req.user.role,
         resourceType: 'User', resourceId: user._id,
-        details: { from: previous, to: req.body.status },
+        details: { from: previous, to: req.body.status, reason },
         req,
       });
+
       res.json({ message: `Account status updated to "${req.body.status}".`, user });
     } catch (err) { next(err); }
   }
