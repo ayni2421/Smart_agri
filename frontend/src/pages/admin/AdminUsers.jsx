@@ -184,7 +184,7 @@ function UserDrawer({ userId, onClose, onAction }) {
 
               {/* Approve */}
               {user.status === 'pending_approval' && actionPanel !== 'approve' && (
-                <button className="adm-btn adm-btn-secondary adm-btn-sm" style={{ marginRight: 8 }}
+                <button className="adm-btn adm-btn-secondary adm-btn-sm" style={{ marginRight: 8, marginBottom: 6 }}
                   onClick={() => setActionPanel('approve')}>
                   <CheckCircle2 size={12} /> Approve account
                 </button>
@@ -192,46 +192,70 @@ function UserDrawer({ userId, onClose, onAction }) {
 
               {/* Suspend */}
               {user.status === 'active' && user.role !== 'admin' && actionPanel !== 'suspend' && (
-                <button className="adm-btn adm-btn-danger adm-btn-sm" style={{ marginRight: 8 }}
+                <button className="adm-btn adm-btn-danger adm-btn-sm" style={{ marginRight: 8, marginBottom: 6 }}
                   onClick={() => setActionPanel('suspend')}>
                   <Ban size={12} /> Suspend account
                 </button>
               )}
 
+              {/* Deactivate — permanent closure */}
+              {['active','suspended'].includes(user.status) && user.role !== 'admin' && actionPanel !== 'deactivate' && (
+                <button className="adm-btn adm-btn-danger adm-btn-sm" style={{ marginBottom: 6, background: '#fff', border: '1px solid #fecaca', color: '#991b1b' }}
+                  onClick={() => setActionPanel('deactivate')}>
+                  <X size={12} /> Deactivate account
+                </button>
+              )}
+
               {/* Reactivate */}
-              {user.status === 'suspended' && actionPanel !== 'reactivate' && (
+              {['suspended','deactivated'].includes(user.status) && actionPanel !== 'reactivate' && (
                 <button className="adm-btn adm-btn-secondary adm-btn-sm"
                   onClick={() => setActionPanel('reactivate')}>
                   <CheckCircle2 size={12} /> Reactivate account
                 </button>
               )}
 
-              {/* Action confirmation panel */}
+              {/* Status lifecycle legend */}
+              <div style={{ marginTop: 10, fontSize: 10, color: 'var(--adm-muted)', lineHeight: 1.8 }}>
+                <strong>Status guide:</strong> pending_approval → active → suspended/deactivated.
+                Suspended = temporary block, reactivatable. Deactivated = permanent closure.
+              </div>
+
               {actionPanel && (
-                <div style={{ marginTop: 12, padding: 12, background: actionPanel === 'suspend' ? '#fef2f2' : '#f0fdf4', borderRadius: 8, border: `1px solid ${actionPanel === 'suspend' ? '#fecaca' : '#86efac'}` }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, margin: '0 0 8px', color: actionPanel === 'suspend' ? '#991b1b' : '#166534' }}>
+                <div style={{ marginTop: 12, padding: 12, background: ['suspend','deactivate'].includes(actionPanel) ? '#fef2f2' : '#f0fdf4', borderRadius: 8, border: `1px solid ${['suspend','deactivate'].includes(actionPanel) ? '#fecaca' : '#86efac'}` }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, margin: '0 0 8px', color: ['suspend','deactivate'].includes(actionPanel) ? '#991b1b' : '#166534' }}>
                     {actionPanel === 'approve'    && `Approve ${user.firstName}'s account?`}
                     {actionPanel === 'suspend'    && `Suspend ${user.firstName}'s account?`}
+                    {actionPanel === 'deactivate' && `Permanently deactivate ${user.firstName}'s account?`}
                     {actionPanel === 'reactivate' && `Reactivate ${user.firstName}'s account?`}
                   </p>
+                  {actionPanel === 'deactivate' && (
+                    <p style={{ fontSize: 11, color: '#991b1b', margin: '0 0 8px' }}>
+                      Deactivation is a permanent closure. The account can only be restored by an administrator.
+                    </p>
+                  )}
 
-                  {/* Reason — required for suspend, optional for others */}
                   <label style={lbl}>
-                    {actionPanel === 'suspend' ? 'Reason (required)' : 'Note (optional)'}
+                    {['suspend','deactivate'].includes(actionPanel) ? 'Reason (required)' : 'Note (optional)'}
                   </label>
                   <textarea
                     style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--adm-border)', borderRadius: 6, fontSize: 12, resize: 'vertical', minHeight: 56, fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 10 }}
-                    placeholder={actionPanel === 'suspend' ? 'Explain why this account is being suspended…' : 'Optional note…'}
+                    placeholder={
+                      actionPanel === 'suspend'    ? 'Explain why this account is being suspended…'    :
+                      actionPanel === 'deactivate' ? 'Explain why this account is being deactivated…'  :
+                      'Optional note…'
+                    }
                     value={reason}
                     onChange={e => setReason(e.target.value)}
                   />
 
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
-                      className={`adm-btn adm-btn-sm ${actionPanel === 'suspend' ? 'adm-btn-danger' : 'adm-btn-primary'}`}
-                      disabled={statusMutation.isLoading || (actionPanel === 'suspend' && !reason.trim())}
+                      className={`adm-btn adm-btn-sm ${['suspend','deactivate'].includes(actionPanel) ? 'adm-btn-danger' : 'adm-btn-primary'}`}
+                      disabled={statusMutation.isLoading || (['suspend','deactivate'].includes(actionPanel) && !reason.trim())}
                       onClick={() => statusMutation.mutate({
-                        status: actionPanel === 'suspend' ? 'suspended' : 'active',
+                        status: actionPanel === 'approve'    ? 'active'       :
+                                actionPanel === 'suspend'    ? 'suspended'    :
+                                actionPanel === 'deactivate' ? 'deactivated'  : 'active',
                         reason,
                       })}
                     >
@@ -270,6 +294,15 @@ function UserDrawer({ userId, onClose, onAction }) {
                     </span>
                   </div>
                 ))}
+                {/* Point 8: link to full audit log filtered by resource (read-only) */}
+                <a
+                  href={`/admin/audit?resourceType=User`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 10, fontSize: 11, fontWeight: 600, color: 'var(--adm-forest-active)', textDecoration: 'none' }}
+                >
+                  View full audit log →
+                </a>
               </div>
             )}
           </>
@@ -286,18 +319,26 @@ export default function AdminUsers() {
   const [roleTab,      setRoleTab]      = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [search,       setSearch]       = useState('');
+  const [searchInput,  setSearchInput]  = useState(''); // raw input, debounced into search
   const [page,         setPage]         = useState(1);
   const [showCreate,   setShowCreate]   = useState(false);
   const [form,         setForm]         = useState(EMPTY_FORM);
   const [formError,    setFormError]    = useState('');
   const [drawerUserId, setDrawerUserId] = useState(null);
 
+  // Debounce search input → server query (point 6)
+  React.useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   // ── Data ──────────────────────────────────────────────────────────────────
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-users', roleTab, statusFilter, page],
+    queryKey: ['admin-users', roleTab, statusFilter, search, page],
     queryFn: () => userApi.list({
       role:   roleTab      || undefined,
       status: statusFilter || undefined,
+      search: search.trim() || undefined,   // server-side search (point 6)
       page,
       limit:  LIMIT,
     }).then(r => r.data),
@@ -340,17 +381,15 @@ export default function AdminUsers() {
   const users      = data?.users ?? [];
   const total      = data?.total ?? 0;
   const totalPages = Math.ceil(total / LIMIT);
-  const filtered   = search.trim()
-    ? users.filter(u =>
-        `${u.firstName} ${u.lastName} ${u.email} ${u.region || ''}`
-          .toLowerCase().includes(search.toLowerCase()))
-    : users;
+  // Server already filtered — use users directly
+  const filtered   = users;
 
   const switchTab = (role) => {
     setRoleTab(role);
     setPage(1);
     setSearch('');
-    setStatusFilter(''); // always reset status filter when switching tabs
+    setSearchInput('');
+    setStatusFilter('');
   };
   const tabCount  = (role) => role === '' ? countData?.all : countData?.byRole?.[role] ?? 0;
 
@@ -493,7 +532,7 @@ export default function AdminUsers() {
             <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--adm-muted)', pointerEvents: 'none' }} />
             <input className="adm-input" style={{ width: '100%', paddingLeft: 28 }}
               placeholder="Search name, email or region…"
-              value={search} onChange={e => setSearch(e.target.value)} />
+              value={searchInput} onChange={e => setSearchInput(e.target.value)} />
           </div>
           <select className="adm-select" value={statusFilter}
             onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
@@ -502,10 +541,10 @@ export default function AdminUsers() {
             ))}
           </select>
           {/* Active filter indicator with clear button */}
-          {(statusFilter || search) && (
+          {(statusFilter || searchInput) && (
             <button
               className="adm-btn adm-btn-secondary adm-btn-sm"
-              onClick={() => { setStatusFilter(''); setSearch(''); setPage(1); }}
+              onClick={() => { setStatusFilter(''); setSearch(''); setSearchInput(''); setPage(1); }}
               style={{ whiteSpace: 'nowrap' }}
             >
               ✕ Clear filters
